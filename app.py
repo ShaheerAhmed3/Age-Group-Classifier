@@ -52,7 +52,7 @@ def predict():
             # Get the class with highest probability
             predicted_class = np.argmax(prediction[0])
             confidence = float(prediction[0][predicted_class])
-            print("predicted_class: " + str(predicted_class))
+            
             return jsonify({
                 'class': AGE_GROUPS[predicted_class],
                 'confidence': confidence
@@ -62,5 +62,9 @@ def predict():
     
     return jsonify({'error': 'Invalid file type'})
 
+# For local development
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(debug=True)
+else:
+    # This is for Vercel to use as the WSGI application
+    api = app 
