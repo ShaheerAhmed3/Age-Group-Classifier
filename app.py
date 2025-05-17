@@ -62,6 +62,9 @@ def predict():
     
     return jsonify({'error': 'Invalid file type'})
 
-# For local development
+# This is important for Vercel to recognize the WSGI application
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
+else:
+    # This is for Vercel to use as the WSGI application
+    api = app
