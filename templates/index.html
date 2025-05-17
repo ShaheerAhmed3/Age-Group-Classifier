@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Age Classification</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #fafafa;
+      }
+      .drop-zone {
+        border: 2px dashed #e5e7eb;
+        transition: all 0.2s ease;
+        background-color: #ffffff;
+      }
+      .drop-zone:hover,
+      .drop-zone.dragover {
+        border-color: #3b82f6;
+        background-color: #f8fafc;
+      }
+      .result-card {
+        background: linear-gradient(145deg, #ffffff, #f8fafc);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      }
+      .confidence-bar {
+        background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        transition: width 0.5s ease-in-out;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen">
+    <div class="container mx-auto px-4 py-12">
+      <div class="max-w-xl mx-auto">
+        <h1 class="text-2xl font-semibold text-center mb-2 text-gray-800">
+          Age Group Classification
+        </h1>
+        <p class="text-center text-gray-500 mb-8">
+          Upload an image to predict the age group
+        </p>
+
+        <div class="bg-white rounded-xl shadow-sm p-6">
+          <div
+            id="drop-zone"
+            class="drop-zone rounded-lg p-8 text-center cursor-pointer mb-6"
+          >
+            <div class="space-y-3">
+              <svg
+                class="mx-auto h-10 w-10 text-gray-400"
+                stroke="currentColor"
+                fill="none"
+                viewBox="0 0 48 48"
+              >
+                <path
+                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <div class="text-gray-600">
+                <p class="text-sm font-medium">Drag and drop your image here</p>
+                <p class="text-xs text-gray-500 mt-1">or</p>
+                <button
+                  type="button"
+                  class="mt-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Browse Files
+                </button>
+              </div>
+            </div>
+            <input
+              type="file"
+              id="file-input"
+              class="hidden"
+              accept="image/*"
+            />
+          </div>
+
+          <div id="preview" class="hidden mb-6">
+            <img
+              id="preview-image"
+              class="w-full h-64 object-cover rounded-lg shadow-sm"
+              src=""
+              alt="Preview"
+            />
+          </div>
+
+          <div id="result" class="hidden result-card rounded-lg p-6">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">
+              Classification Result
+            </h3>
+            <p
+              id="prediction-text"
+              class="text-lg font-semibold text-gray-900 mb-4"
+            ></p>
+            <div class="space-y-2">
+              <div class="w-full bg-gray-100 rounded-full h-2">
+                <div
+                  id="confidence-bar"
+                  class="confidence-bar h-2 rounded-full"
+                  style="width: 0%"
+                ></div>
+              </div>
+              <p id="confidence-text" class="text-sm text-gray-500"></p>
+            </div>
+          </div>
+
+          <div
+            id="error"
+            class="hidden mt-4 p-4 bg-red-50 text-red-600 text-sm rounded-lg"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const dropZone = document.getElementById("drop-zone");
+        const fileInput = document.getElementById("file-input");
+        const preview = document.getElementById("preview");
+        const previewImage = document.getElementById("preview-image");
+        const result = document.getElementById("result");
+        const predictionText = document.getElementById("prediction-text");
+        const confidenceBar = document.getElementById("confidence-bar");
+        const confidenceText = document.getElementById("confidence-text");
+        const error = document.getElementById("error");
+
+        // Prevent default drag behaviors
+        ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+          dropZone.addEventListener(eventName, preventDefaults, false);
+          document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        // Highlight drop zone when item is dragged over it
+        ["dragenter", "dragover"].forEach((eventName) => {
+          dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ["dragleave", "drop"].forEach((eventName) => {
+          dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        // Handle dropped files
+        dropZone.addEventListener("drop", handleDrop, false);
+
+        // Handle file input change
+        fileInput.addEventListener("change", function (e) {
+          if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+          }
+        });
+
+        // Handle click on drop zone
+        dropZone.addEventListener("click", function () {
+          fileInput.click();
+        });
+
+        function preventDefaults(e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+
+        function highlight(e) {
+          dropZone.classList.add("dragover");
+        }
+
+        function unhighlight(e) {
+          dropZone.classList.remove("dragover");
+        }
+
+        function handleDrop(e) {
+          const dt = e.dataTransfer;
+          const files = dt.files;
+
+          if (files.length > 0) {
+            handleFile(files[0]);
+          }
+        }
+
+        function handleFile(file) {
+          if (!file.type.startsWith("image/")) {
+            showError("Please upload an image file");
+            return;
+          }
+
+          // Preview image
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            previewImage.src = e.target.result;
+            preview.classList.remove("hidden");
+            result.classList.add("hidden");
+            error.classList.add("hidden");
+          };
+          reader.readAsDataURL(file);
+
+          // Upload and classify
+          const formData = new FormData();
+          formData.append("file", file);
+
+          fetch("/predict", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.error) {
+                showError(data.error);
+              } else {
+                showResult(data);
+              }
+            })
+            .catch((err) => {
+              showError("An error occurred during classification");
+            });
+        }
+
+        function showResult(data) {
+          result.classList.remove("hidden");
+          predictionText.textContent = data["class"];
+          const confidence = (data.confidence * 100).toFixed(2);
+          confidenceBar.style.width = `${confidence}%`;
+          confidenceText.textContent = `Confidence: ${confidence}%`;
+        }
+
+        function showError(message) {
+          error.textContent = message;
+          error.classList.remove("hidden");
+          result.classList.add("hidden");
+        }
+      });
+    </script>
+  </body>
+</html>
